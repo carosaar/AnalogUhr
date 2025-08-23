@@ -35,6 +35,10 @@ python3 analog_clock.py
 Hinweis:  
 Auf manchen Systemen muss tkinter separat installiert werden (z. B. `sudo apt-get install python3-tk` auf Debian/Ubuntu).
 
+### 3. Kompilierung
+
+pyinstaller.exe --onefile --windowed  .\analoguhr.py
+
 ## 🎯 Nutzung  
 Die Uhr startet sofort mit aktueller Zeit und Datum.  
 - Stummschaltung: Über das Menü „Stummschaltung ein/aus“ den Stundenschlag an- oder ausschalten.  
