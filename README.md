@@ -17,15 +17,12 @@ Stummschaltung	Ein Button lässt den Stundenschlag jederzeit ein- oder ausschalt
 Aktuelles Datum	In deutscher Sprache (z. B. „Dienstag, 23. August 2025“) wird unter der Uhr angezeigt.
 Keine externen Bibliotheken	Läuft mit Python 3.7+ und dem eingebauten tkinter.
 ⚙️ Installation
-### 1. Repository klonen
-git clone https://github.com/DEIN_USER/ANALOG_CLOCK.git
-cd ANALOG_CLOCK
 
-### 2. Optional: Virtuelles Environment (empfohlen)
+### 1. Optional: Virtuelles Environment (empfohlen)
 python3 -m venv venv
 source venv/bin/activate   # Windows: venv\Scripts\activate
 
-### 3. Skript ausführen
+### 2. Skript ausführen
 python3 analog_clock.py
 Hinweis:
 Auf manchen Systemen muss tkinter separat installiert werden (z. B. sudo apt-get install python3-tk auf Debian/Ubuntu).
