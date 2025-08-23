@@ -16,7 +16,7 @@ Beep‑Töne bei voller Stunde	Bei jeder vollen Stunde ertönen 1‑12 Töne (je
 Stummschaltung	Ein Button lässt den Stundenschlag jederzeit ein- oder ausschalten.
 Aktuelles Datum	In deutscher Sprache (z. B. „Dienstag, 23. August 2025“) wird unter der Uhr angezeigt.
 Keine externen Bibliotheken	Läuft mit Python 3.7+ und dem eingebauten tkinter.
-⚙️ Installation
+## ⚙️ Installation
 
 ### 1. Optional: Virtuelles Environment (empfohlen)
 python3 -m venv venv
