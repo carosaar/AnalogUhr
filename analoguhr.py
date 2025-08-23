@@ -2,25 +2,27 @@
 # -*- coding: utf-8 -*-
 
 """
-Analoge Uhr mit römischen Ziffern, Stundenschlag und Datum.
-Beep‑Töne bei jeder vollen Stunde (Anzahl = Stunde).
-Stundenschlag lässt sich per Button stummschalten.
-
-Author:   Dein Name
-Date:     2025‑08‑23
+Analoge Uhr – Römische Ziffern (Version 1.2.0)
+----------------------------------------------
+- Analoganzeige mit römischen Ziffern
+- Deutsche Datumsanzeige
+- Farbanpassung für Hintergrund, Zifferblatt, Zeiger, Ziffern und Datum
+- Speichern/Laden der Farben in/für eine INI-Datei
+- Menüpunkt „Farben ändern“ wird während des Dialogs gesperrt
+- Stummschaltung mit akustischem Stundenschlag
 """
 
 import tkinter as tk
 import math
 import locale
 from datetime import datetime
+from tkinter import colorchooser
+import configparser
+import os
 
-# ------------------------------------------------------------------
-#  Locale – Deutsch
-# ------------------------------------------------------------------
+# ------------- Lokalisierung -------------------
 def set_german_locale():
-    """Versucht, die Locale auf Deutsch zu setzen."""
-    for loc in ('de_DE.UTF-8', 'de_DE', 'German'):
+    for loc in ("de_DE.UTF-8", "de_DE", "German"):
         try:
             locale.setlocale(locale.LC_TIME, loc)
             return True
@@ -28,185 +30,275 @@ def set_german_locale():
             continue
     return False
 
-
 USE_LOCALE = set_german_locale()
 
-# Manuelle Übersetzung, falls Locale nicht verfügbar
 GERMAN_WEEKDAYS = {
-    0: 'Montag', 1: 'Dienstag', 2: 'Mittwoch',
-    3: 'Donnerstag', 4: 'Freitag', 5: 'Samstag', 6: 'Sonntag'
+    0: "Montag", 1: "Dienstag", 2: "Mittwoch",
+    3: "Donnerstag", 4: "Freitag", 5: "Samstag", 6: "Sonntag"
 }
 GERMAN_MONTHS = {
-    1: 'Januar', 2: 'Februar', 3: 'März',
-    4: 'April', 5: 'Mai', 6: 'Juni',
-    7: 'Juli', 8: 'August', 9: 'September',
-    10: 'Oktober', 11: 'November', 12: 'Dezember'
+    1: "Januar", 2: "Februar", 3: "März", 4: "April",
+    5: "Mai", 6: "Juni", 7: "Juli", 8: "August",
+    9: "September", 10: "Oktober", 11: "November", 12: "Dezember"
 }
 
-def german_date_string(dt: datetime) -> str:
-    """Gibt das Datum im Format 'Dienstag, 23. August 2025' zurück."""
+def german_date_string(now: datetime) -> str:
     if USE_LOCALE:
-        return dt.strftime('%A, %d. %B %Y')
+        return now.strftime("%A, %d. %B %Y")
     else:
-        weekday = GERMAN_WEEKDAYS[dt.weekday()]
-        month   = GERMAN_MONTHS[dt.month]
-        return f"{weekday}, {dt.day:02d}. {month} {dt.year}"
+        weekday = GERMAN_WEEKDAYS[now.weekday()]
+        month = GERMAN_MONTHS[now.month]
+        return f"{weekday}, {now.day:02d}. {month} {now.year}"
 
-
-# ------------------------------------------------------------------
-#  Hilfsfunktionen
-# ------------------------------------------------------------------
-def angle_to_xy(angle_deg, length, offset=0):
-    """
-    Wandelt einen Winkel (in Grad) in ein (x, y) Koordinatenpaar um.
-    0° = 12 Uhr; positive Werte laufen im Uhrzeigersinn.
-    """
-    rad = math.radians(angle_deg - 90 + offset)   # 0° nach oben
-    return CENTER_X + length * math.cos(rad), \
-           CENTER_Y + length * math.sin(rad)
-
-
-# ------------------------------------------------------------------
-#  Konstanten
-# ------------------------------------------------------------------
-WINDOW_SIZE   = 400            # Fenstergröße (px)
-CLOCK_RADIUS  = 160            # Radius der Uhr
-CENTER_X      = WINDOW_SIZE // 2
-CENTER_Y      = WINDOW_SIZE // 2
-HAND_COLORS   = {'hour': 'black', 'minute': 'blue', 'second': 'red'}
-
-# Römische Ziffern 1–12
+# ------------- Konstanten -------------------
 ROMAN_NUMERALS = {
-    1:  'I',  2: 'II',  3: 'III', 4: 'IV',
-    5:  'V',  6: 'VI',  7: 'VII', 8: 'VIII',
-    9:  'IX', 10: 'X', 11: 'XI', 12: 'XII'
+    1:'I', 2:'II', 3:'III', 4:'IV', 5:'V', 6:'VI',
+    7:'VII', 8:'VIII', 9:'IX', 10:'X', 11:'XI', 12:'XII'
 }
 
+WINDOW_TITLE = "Analoge Uhr – Römische Ziffern"
+INI_FILE = "colors.ini"
 
-# ------------------------------------------------------------------
-#  Hauptklasse
-# ------------------------------------------------------------------
+DEFAULT_COLORS = {
+    "background": "#FFFFFF",
+    "face": "#EEEEEE",
+    "hands": "#000000",
+    "digits": "#000000",
+    "date": "#000000"
+}
+
+CANVAS_SIZE = 400
+CLOCK_RADIUS = 150
+
+# ------------- RomanClock Klasse -------------------
 class RomanClock(tk.Canvas):
-    """
-    Canvas‑Widget, das die analoge Uhr zeichnet.
-    """
-    def __init__(self, parent, date_var=None, **kwargs):
-        super().__init__(parent, width=WINDOW_SIZE, height=WINDOW_SIZE,
-                         bg='white', highlightthickness=0, **kwargs)
-        self.pack()
+    def __init__(self, master, date_var: tk.StringVar, **kwargs):
+        super().__init__(master,
+                         width=CANVAS_SIZE,
+                         height=CANVAS_SIZE,
+                         bg=DEFAULT_COLORS["background"],
+                         highlightthickness=0,
+                         **kwargs)
+        self.mute = False
+        self.last_hour = None
+        self.date_var = date_var
+        self._color_swaps = {}
 
-        self.last_hour = None   # für Stundenschlag
-        self.mute      = False  # Beep‑Schalter
-        self.date_var  = date_var
+        self.colors = self.load_colors()
+        self.face_id = None
+        self.hand_ids = {}
+        self.digit_ids = {}
 
-        # Kreis der Uhr
-        self.create_oval(CENTER_X - CLOCK_RADIUS, CENTER_Y - CLOCK_RADIUS,
-                         CENTER_X + CLOCK_RADIUS, CENTER_Y + CLOCK_RADIUS,
-                         outline='black', width=4)
-
-        # Römische Ziffern platzieren
-        for hour, roman in ROMAN_NUMERALS.items():
-            angle = hour * 30               # 360° / 12
-            x, y = angle_to_xy(angle, CLOCK_RADIUS - 30)
-            self.create_text(x, y, text=roman, font=('Helvetica', 14, 'bold'))
-
-        # Hands
-        self.hour_hand   = self.create_line(0, 0, 0, 0, width=6, fill=HAND_COLORS['hour'])
-        self.minute_hand = self.create_line(0, 0, 0, 0, width=4, fill=HAND_COLORS['minute'])
-        self.second_hand = self.create_line(0, 0, 0, 0, width=2, fill=HAND_COLORS['second'])
-
-        # Stummschalter‑Button
-        self.mute_button = tk.Button(parent,
-                                     text="Stummschaltung ein",
-                                     command=self.toggle_mute)
-        self.mute_button.pack(pady=5)
-
-        # Initiales Update
+        self.create_clock_face()
+        self.create_hands()
+        self.apply_colors()
         self.update_clock()
 
-    # ---------- Stummschalter ----------
-    def toggle_mute(self):
-        self.mute = not self.mute
-        self.mute_button.config(text="Stummschaltung aus" if self.mute else "Stummschaltung ein")
+    def load_colors(self):
+        config = configparser.ConfigParser()
+        if os.path.exists(INI_FILE):
+            config.read(INI_FILE)
+            if "Colors" in config.sections():
+                colors = {}
+                for key in DEFAULT_COLORS.keys():
+                    colors[key] = config.get("Colors", key, fallback=DEFAULT_COLORS[key])
+                return colors
+        return DEFAULT_COLORS.copy()
 
-    # ---------- Beep‑Sequenz ----------
-    def play_beeps(self, count):
-        """Beep‑Sequenz ohne UI‑Blockierung, nutzt `after`."""
-        def beep_step(step):
-            if step < count:
-                self.bell()                      # Tkinter‑Standard‑Beep
-                # 0.4 s zwischen den Tönen
-                self.after(400, lambda: beep_step(step + 1))
-        beep_step(0)
+    def save_colors(self):
+        config = configparser.ConfigParser()
+        config["Colors"] = self.colors
+        with open(INI_FILE, "w") as f:
+            config.write(f)
 
-    # ---------- Uhr‑Update ----------
+    def apply_colors(self):
+        self.master.configure(bg=self.colors["background"])
+        self.configure(bg=self.colors["background"])
+        if self.face_id:
+            self.itemconfig(self.face_id, fill=self.colors["face"])
+        for id_ in self.digit_ids.values():
+            self.itemconfig(id_, fill=self.colors["digits"])
+        for id_ in self.hand_ids.values():
+            self.itemconfig(id_, fill=self.colors["hands"])
+        if hasattr(self, 'date_label'):
+            self.date_label.config(
+                fg=self.colors['date'],
+                bg=self.colors['background']   # <- Hier Hintergrund setzen!
+            )
+
+    def create_clock_face(self):
+        center = CANVAS_SIZE / 2
+        self.face_id = self.create_oval(
+            center - CLOCK_RADIUS, center - CLOCK_RADIUS,
+            center + CLOCK_RADIUS, center + CLOCK_RADIUS,
+            outline="black", width=3, fill=self.colors["face"]
+        )
+        for hour, roman in ROMAN_NUMERALS.items():
+            angle_deg = (hour % 12) * 30
+            x, y = self.polar_to_xy(angle_deg, CLOCK_RADIUS - 30)
+            self.digit_ids[hour] = self.create_text(
+                x, y,
+                text=roman,
+                font=("Helvetica", 14, "bold"),
+                fill=self.colors["digits"]
+            )
+
+    def create_hands(self):
+        center = CANVAS_SIZE / 2
+        self.hand_ids["hour"] = self.create_line(center, center, center, center,
+                                                 width=6, fill=self.colors["hands"])
+        self.hand_ids["minute"] = self.create_line(center, center, center, center,
+                                                   width=4, fill=self.colors["hands"])
+        self.hand_ids["second"] = self.create_line(center, center, center, center,
+                                                   width=2, fill=self.colors["hands"])
+
+    def polar_to_xy(self, angle_deg: float, radius: float):
+        rad = math.radians(angle_deg - 90)
+        x = CANVAS_SIZE / 2 + radius * math.cos(rad)
+        y = CANVAS_SIZE / 2 + radius * math.sin(rad)
+        return x, y
+
     def update_clock(self):
         now = datetime.now()
-        hour   = now.hour % 12
+        hour = now.hour % 12
         minute = now.minute
         second = now.second
 
-        # Winkel für jede Hand
-        hour_angle   = (hour + minute / 60) * 30
+        hour_angle = (hour + minute / 60) * 30
         minute_angle = (minute + second / 60) * 6
         second_angle = second * 6
 
-        # Handlängen
-        hour_len   = CLOCK_RADIUS * 0.5
+        hour_len = CLOCK_RADIUS * 0.5
         minute_len = CLOCK_RADIUS * 0.7
         second_len = CLOCK_RADIUS * 0.9
 
-        # Koordinaten der Endpunkte
-        xh, yh = angle_to_xy(hour_angle,   hour_len)
-        xm, ym = angle_to_xy(minute_angle, minute_len)
-        xs, ys = angle_to_xy(second_angle, second_len)
+        xh, yh = self.polar_to_xy(hour_angle, hour_len)
+        xm, ym = self.polar_to_xy(minute_angle, minute_len)
+        xs, ys = self.polar_to_xy(second_angle, second_len)
 
-        # Hände aktualisieren
-        self.coords(self.hour_hand,   CENTER_X, CENTER_Y, xh, yh)
-        self.coords(self.minute_hand, CENTER_X, CENTER_Y, xm, ym)
-        self.coords(self.second_hand, CENTER_X, CENTER_Y, xs, ys)
+        self.coords(self.hand_ids["hour"], CANVAS_SIZE/2, CANVAS_SIZE/2, xh, yh)
+        self.coords(self.hand_ids["minute"], CANVAS_SIZE/2, CANVAS_SIZE/2, xm, ym)
+        self.coords(self.hand_ids["second"], CANVAS_SIZE/2, CANVAS_SIZE/2, xs, ys)
 
-        # --- Stundenschlag prüfen ---
         if minute == 0 and second == 0:
             if self.last_hour != now.hour:
                 if not self.mute:
-                    # 1‑12 (oder 0 für 12 Uhr)
                     self.play_beeps(now.hour if now.hour != 0 else 12)
                 self.last_hour = now.hour
 
-        # Datum aktualisieren, falls Variable vorhanden
-        if self.date_var is not None:
+        if self.date_var:
             self.date_var.set(german_date_string(now))
 
-        # Wiederholung alle 1 s
         self.after(1000, self.update_clock)
 
+    def play_beeps(self, count):
+        def beep_step(n):
+            if n < count:
+                self.master.bell()
+                self.after(400, lambda: beep_step(n+1))
+        beep_step(0)
 
-# ------------------------------------------------------------------
-#  Hauptfunktion
-# ------------------------------------------------------------------
+    def open_color_dialog(self):
+        dialog = tk.Toplevel(self.master)
+        dialog.title("Farben ändern")
+        dialog.resizable(False, False)
+        dialog.transient(self.master)
+        dialog.grab_set()
+
+        self._color_swaps = {}
+
+        def on_color_select(varname):
+            # Sperre Hauptdialog, damit nicht mehrfach geöffnet wird
+            dialog.attributes("-disabled", True)
+            color = colorchooser.askcolor(title=f"Farbe für {varname}",
+                                        color=self.colors[varname])[1]
+            dialog.attributes("-disabled", False)
+            if color:
+                self.colors[varname] = color
+                self.apply_colors()
+                if varname in self._color_swaps:
+                    self._color_swaps[varname].config(bg=color)
+                self.save_colors()
+
+        def reset_colors():
+            self.colors = DEFAULT_COLORS.copy()
+            self.apply_colors()
+            for varname, sw in self._color_swaps.items():
+                sw.config(bg=self.colors[varname])
+            self.save_colors()
+
+        names = [
+            ("Hintergrund", "background"),
+            ("Zifferblatt", "face"),
+            ("Zeiger", "hands"),
+            ("Ziffern", "digits"),
+            ("Datumsanzeige", "date")
+        ]
+
+        for idx, (label, varname) in enumerate(names):
+            lbl = tk.Label(dialog, text=label)
+            lbl.grid(row=idx, column=0, padx=5, pady=5, sticky="e")
+            btn = tk.Button(dialog, text="Auswählen",
+                            command=lambda n=varname: on_color_select(n))
+            btn.grid(row=idx, column=1, padx=5, pady=5, sticky="w")
+            sw = tk.Label(dialog, bg=self.colors[varname], width=3)
+            sw.grid(row=idx, column=2, padx=5, pady=5)
+            self._color_swaps[varname] = sw
+
+        reset_btn = tk.Button(dialog, text="Zurücksetzen", command=reset_colors)
+        reset_btn.grid(row=len(names), column=0, padx=5, pady=10, sticky="w")
+
+        close_btn = tk.Button(dialog, text="Schließen", command=dialog.destroy)
+        close_btn.grid(row=len(names), column=1, columnspan=2, padx=5, pady=10)
+
+        dialog.protocol("WM_DELETE_WINDOW", dialog.destroy)
+
+
+
+    def toggle_mute_in_menu(self, menu, idx):
+        self.mute = not self.mute
+        label = "Stummschaltung aus" if self.mute else "Stummschaltung ein"
+        menu.entryconfig(idx, label=label)
+
+# ------------- Hauptfenster und Menü -------------------
 def main():
     root = tk.Tk()
-    root.title("Analoge Uhr – Römische Ziffern")
-    root.resizable(False, False)
+    root.title(WINDOW_TITLE)
+    root.geometry(f"{CANVAS_SIZE+20}x{CANVAS_SIZE+70}")
 
-    # Frame für Uhr und Button
-    frame = tk.Frame(root, bg='white')
-    frame.pack(padx=10, pady=10)
-
-    # Variable für Datum
     date_var = tk.StringVar()
+    date_lbl = tk.Label(root,
+                        textvariable=date_var,
+                        font=("Helvetica", 12),
+                        bg=DEFAULT_COLORS["background"],
+                        fg=DEFAULT_COLORS["date"])
+    date_lbl.pack(side="bottom", pady=10)
 
-    # Uhr
-    clock = RomanClock(frame, date_var=date_var)
+    clock = RomanClock(root, date_var=date_var)
+    clock.pack(padx=10, pady=10)
+    clock.date_label = date_lbl
+    clock.apply_colors()  # nochmal aufrufen, damit Hintergrund richtig gesetzt wird
 
-    # Datum‑Label unterhalb der Uhr
-    date_label = tk.Label(root, textvariable=date_var,
-                          font=('Helvetica', 12), bg='white')
-    date_label.pack(pady=(0, 10))
+
+    menubar = tk.Menu(root)
+    submenu = tk.Menu(menubar, tearoff=0)
+
+    def toggle_mute():
+        clock.toggle_mute_in_menu(submenu, 0)
+
+    submenu.add_command(label="Stummschaltung ein", command=toggle_mute)
+    farben_index = 1
+    submenu.add_command(label="Farben ändern", command=clock.open_color_dialog)
+    submenu.add_separator()
+    submenu.add_command(label="Beenden", command=root.destroy)
+
+    menubar.add_cascade(label="Menü", menu=submenu)
+    root.config(menu=menubar)
+
+    clock.farben_menu = submenu
+    clock.farben_index = farben_index
 
     root.mainloop()
-
 
 if __name__ == "__main__":
     main()
