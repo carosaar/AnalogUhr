@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Analoge Uhr mit Stundenschlag</title>
+<style>
+    body { margin: 0; font-family: Arial, Helvetica, sans-serif; text-align:center; background:#f8f8f8; }
+    #clockCanvas { background:#FFFFFF; display:block; margin: 20px auto; }
+    #dateDisplay { font-size:1.2em; margin-top:10px; }
+    #menu button { margin:5px 10px; }
+    /* Dialog Styling */
+    #colorDialog {
+        display:none;
+        position:fixed;
+        top:50%; left:50%;
+        transform:translate(-50%,-50%);
+        background:#fff;
+        padding:20px;
+        border:2px solid #333;
+        box-shadow:0 0 10px rgba(0,0,0,0.5);
+    }
+    #colorDialog label { display:inline-block; width:120px; text-align:right; margin-right:5px; }
+    #colorDialog .color-row { margin:5px 0; }
+    #colorDialog button { margin:10px 5px; }
+</style>
+</head>
+<body>
+<h1>Analoge Uhr mit Stundenschlag</h1>
+<canvas id="clockCanvas" width="400" height="400"></canvas>
+<div id="dateDisplay"></div>
+<div id="menu">
+    <button id="muteBtn">Stummschaltung ein</button>
+    <button id="colorBtn">Farben ändern</button>
+    <button id="closeBtn">Beenden</button>
+</div>
+
+<!-- Farb‑Dialog -->
+<div id="colorDialog">
+    <h2>Farben ändern</h2>
+    <div id="colorOptions"></div>
+    <button id="resetColorsBtn">Zurücksetzen</button>
+    <button id="closeColorDialogBtn">Schließen</button>
+</div>
+
+<script>
+/* ======================  Konstanten ====================== */
+const CANVAS_SIZE = 400;
+const CLOCK_RADIUS = 150;
+const ROME_NUMERALS = {
+    1:'I', 2:'II', 3:'III', 4:'IV', 5:'V',
+    6:'VI', 7:'VII', 8:'VIII', 9:'IX',
+    10:'X', 11:'XI', 12:'XII'
+};
+const DEFAULT_COLORS = {
+    background: "#FFFFFF",
+    face: "#EEEEEE",
+    hands: "#000000",
+    digits: "#000000",
+    date: "#000000"
+};
+
+/* ======================  Hilfsfunktionen ====================== */
+function polarToXY(angleDeg, radius) {
+    const rad = Math.PI/180 * (angleDeg - 90);
+    const x = CANVAS_SIZE/2 + radius * Math.cos(rad);
+    const y = CANVAS_SIZE/2 + radius * Math.sin(rad);
+    return [x, y];
+}
+
+function germanDateString(date) {
+    // Intl API für deutschsprachiges Format
+    const opts = { weekday:"long", year:"numeric", month:"long", day:"numeric" };
+    return new Intl.DateTimeFormat('de-DE', opts).format(date);
+}
+
+/* ======================  Persistenz ====================== */
+function loadColors() {
+    const stored = localStorage.getItem('clockColors');
+    if (stored) {
+        try {
+            const parsed = JSON.parse(stored);
+            return {...DEFAULT_COLORS, ...parsed};
+        } catch(_) {}
+    }
+    return {...DEFAULT_COLORS};
+}
+function saveColors(colors) {
+    localStorage.setItem('clockColors', JSON.stringify(colors));
+}
+
+/* ======================  Akustischer Stundenschlag ====================== */
+function playBeep(count) {
+    if (!window.audioCtx) window.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = window.audioCtx;
+    function beepStep(n) {
+        if (n >= count) return;
+        const osc = ctx.createOscillator();
+        osc.frequency.value = 1000;   // 1kHz
+        osc.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.1); // 100ms
+        setTimeout(()=>beepStep(n+1), 400);
+    }
+    beepStep(0);
+}
+
+/* ======================  Zeichenlogik ====================== */
+const canvas = document.getElementById('clockCanvas');
+const ctx = canvas.getContext('2d');
+let colors = loadColors();
+let mute = false;
+
+/* Zeichenfunktion für das komplette Uhrblatt */
+function drawClock() {
+    // Hintergrund
+    ctx.fillStyle = colors.background;
+    ctx.fillRect(0,0,CANVAS_SIZE,CANVAS_SIZE);
+
+    // Zifferblatt
+    ctx.beginPath();
+    ctx.arc(CANVAS_SIZE/2, CANVAS_SIZE/2, CLOCK_RADIUS, 0, 2*Math.PI);
+    ctx.fillStyle = colors.face;
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "#000";
+    ctx.stroke();
+
+    // Römische Ziffern
+    ctx.font = "bold 18px Arial";
+    ctx.fillStyle = colors.digits;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    for (let h=1; h<=12; h++) {
+        const angle = h * 30;
+        const [x,y] = polarToXY(angle, CLOCK_RADIUS-30);
+        ctx.fillText(ROME_NUMERALS[h], x, y);
+    }
+
+    // Zeiger
+    const now = new Date();
+    const hour = now.getHours()%12;
+    const minute = now.getMinutes();
+    const second = now.getSeconds();
+
+    const hourAngle = (hour + minute/60) * 30;
+    const minuteAngle = (minute + second/60) * 6;
+    const secondAngle = second * 6;
+
+    // Stunde
+    const [xh,yh] = polarToXY(hourAngle, CLOCK_RADIUS*0.5);
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = colors.hands;
+    ctx.beginPath();
+    ctx.moveTo(CANVAS_SIZE/2, CANVAS_SIZE/2);
+    ctx.lineTo(xh, yh);
+    ctx.stroke();
+
+    // Minute
+    const [xm,ym] = polarToXY(minuteAngle, CLOCK_RADIUS*0.7);
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(CANVAS_SIZE/2, CANVAS_SIZE/2);
+    ctx.lineTo(xm, ym);
+    ctx.stroke();
+
+    // Sekunde
+    const [xs,ys] = polarToXY(secondAngle, CLOCK_RADIUS*0.9);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = colors.hands;
+    ctx.beginPath();
+    ctx.moveTo(CANVAS_SIZE/2, CANVAS_SIZE/2);
+    ctx.lineTo(xs, ys);
+    ctx.stroke();
+
+    // Datum
+    const dateDiv = document.getElementById('dateDisplay');
+    dateDiv.textContent = germanDateString(now);
+    dateDiv.style.color = colors.date;
+    dateDiv.style.backgroundColor = colors.background;
+
+    // Beep bei vollen Minuten (nur einmal pro Stunde)
+    if (minute===0 && second===0) {
+        if (!window.lastHour || window.lastHour !== now.getHours()) {
+            if (!mute) playBeep(now.getHours()===0?12:now.getHours());
+            window.lastHour = now.getHours();
+        }
+    }
+}
+
+/* ======================  Update Loop ====================== */
+function loop() {
+    drawClock();
+    requestAnimationFrame(loop);
+}
+loop();
+
+/* ======================  Menüfunktionen ====================== */
+const muteBtn = document.getElementById('muteBtn');
+muteBtn.addEventListener('click', () => {
+    mute = !mute;
+    muteBtn.textContent = mute ? "Stummschaltung aus" : "Stummschaltung ein";
+});
+
+const colorBtn = document.getElementById('colorBtn');
+const colorDialog = document.getElementById('colorDialog');
+const colorOptions = document.getElementById('colorOptions');
+
+function buildColorDialog() {
+    colorOptions.innerHTML = ''; // Reset
+    const fields = [
+        {label:'Hintergrund', key:'background'},
+        {label:'Zifferblatt', key:'face'},
+        {label:'Zeiger', key:'hands'},
+        {label:'Ziffern', key:'digits'},
+        {label:'Datumsanzeige', key:'date'}
+    ];
+    fields.forEach(field=>{
+        const row = document.createElement('div');
+        row.className='color-row';
+        const lbl = document.createElement('label');
+        lbl.textContent=field.label;
+        const input = document.createElement('input');
+        input.type='color';
+        input.value=colors[field.key];
+        input.addEventListener('input', e=>{
+            colors[field.key]=e.target.value;
+            saveColors(colors);
+            drawClock(); // sofort anwenden
+        });
+        row.appendChild(lbl);
+        row.appendChild(input);
+        colorOptions.appendChild(row);
+    });
+}
+
+colorBtn.addEventListener('click', () => {
+    buildColorDialog();
+    colorDialog.style.display='block';
+});
+
+document.getElementById('closeColorDialogBtn').addEventListener('click', ()=>{
+    colorDialog.style.display='none';
+});
+
+document.getElementById('resetColorsBtn').addEventListener('click', ()=>{
+    colors = {...DEFAULT_COLORS};
+    saveColors(colors);
+    drawClock();
+    buildColorDialog();
+});
+
+const closeBtn = document.getElementById('closeBtn');
+closeBtn.addEventListener('click', () => {
+    // In einem Browser kann window.close() nur von pop‑ups geöffnet werden.
+    // Wir zeigen einfach eine Meldung an.
+    alert('Das Programm kann im Browser nicht geschlossen werden.\nSchließen Sie den Browsertab');
+});
+</script>
+</body>
+</html>
