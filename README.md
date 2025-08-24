@@ -1,75 +1,72 @@
-# Analoge Uhr – Römische Ziffern  
-Version 1.1.0
+# Analoge Uhr mit Stundenschlag
 
-Eine kleine Desktop‑Anwendung, die eine analoge Uhr mit römischen Ziffern anzeigt, das aktuelle Datum ausgibt und bei jeder vollen Stunde einen Stundenschlag (Beep‑Töne) auslöst.  
-Die App ist komplett in Python geschrieben und benötigt lediglich das Standard‑tkinter‑Modul – keine zusätzlichen Abhängigkeiten.
+Ein Projekt zur Erstellung einer analogen Uhr mit römischen Ziffern, deutscher Datumsanzeige und anpassbaren Farben.
 
-## 📸 Screenshots  
-Uhr mit Datum und Stundenschlag  
-![alt text](Screenshot/Screenshot_analogeUhr.png)
+## Überblick
 
-| Merkmal | Beschreibung |          
-|-----------------------|-----------------------------------------------------------------------------------------------|
-| Römische Ziffern      | Die Stunden 1–12 sind als I–XII angezeigt.                                                    |
-| Beep‑Töne bei voller Stunde | Bei jeder vollen Stunde ertönen 1‑24 Töne (je nach Stunde).                                          |
-| Stummschaltung        | Ein Menüpunkt lässt den Stundenschlag jederzeit ein- oder ausschalten.                         |
-| Aktuelles Datum       | In deutscher Sprache (z. B. „Dienstag, 23. August 2025“) wird unter der Uhr angezeigt.        |
-| Keine externen Bibliotheken | Läuft mit Python 3.7+ und dem eingebauten tkinter.                                         |
-| Farbwahl              | Individuelle Farbanpassung für Hintergrund, Zifferblatt, Zeiger, Ziffern und Datumsanzeige.    |
-| Farbwahl-Menü sperren | Das Menü zum Ändern der Farben ist vorübergehend gesperrt, solange der Farbauswahl-Dialog offen ist. |
-| Farben zurücksetzen   | Im Farbauswahl-Dialog kann man alle Farben auf Standardwerte zurücksetzen.                     |
-| Speicherung der Farben| Farbkonfiguration wird in einer ini-Datei gespeichert und beim Programmstart geladen.          |
+Dieses Projekt umfasst zwei Versionen einer analogen Uhr:
 
-## ⚙️ Installation
+*   **HTML-Version:** Eine webbasierte Version, die mit HTML, CSS und JavaScript erstellt wurde. Sie bietet eine benutzerfreundliche Oberfläche zum Ändern der Farben und Stummschalten des Stundenschlags.
+*   **Python-Version:** Eine Desktop-Anwendung, die mit Tkinter erstellt wurde.  Sie bietet ähnliche Funktionen wie die HTML-Version, läuft jedoch als eigenständige Anwendung.
 
-### 1. Optional: Virtuelles Environment (empfohlen)  
-```bash
-python3 -m venv venv
-source venv/bin/activate   # Windows: venv\Scripts\activate
+## Features
+
+*   **Analoge Anzeige:** Zeigt die Uhrzeit mit römischen Ziffern.
+*   **Deutsche Datumsanzeige:** Zeigt das Datum im deutschen Format.
+*   **Anpassbare Farben:** Ermöglicht das Ändern des Hintergrunds, Zifferblatts, Zeiger und Datumsanzeige.
+*   **Stundenschlag:** Spielt einen akustischen Stundenschlag, der über einen Schalter ein- oder ausgeschaltet werden kann.
+*   **Farbpersistenz:** Die zuletzt verwendeten Farben werden im Browser (für die HTML-Version) bzw. in einer INI-Datei (für die Python-Version) gespeichert.
+*   **Benutzerfreundliche Oberfläche:** Einfache Steuerung über Menüs und Dialogfenster.
+
+## Benötigte Software
+
+*   **HTML-Version:**
+    *   Ein moderner Webbrowser (z.B. Chrome, Firefox, Edge).
+*   **Python-Version:**
+    *   Python 3.x
+    *   Tkinter (in der Regel vorinstalliert, andernfalls mit `pip install tkinter` installieren)
+
+## Installation und Ausführung
+
+### HTML-Version
+
+1.  Speichere die Datei `analoguhr.html` in einem Ordner.
+2.  Öffne die Datei `analoguhr.html` mit einem Webbrowser.
+
+### Python-Version
+
+1.  Speichere die Datei `analoguhr.py` in einem Ordner.
+2.  Öffne ein Terminal oder eine Eingabeaufforderung und navigiere zu dem Ordner, in dem du die Datei gespeichert hast.
+3.  Führe die Datei mit dem Befehl `python analoguhr.py` aus.
+
+## Ordnerstruktur
+
+analoguhr/ 
+├── analoguhr.html 
+├── analoguhr.py 
+└── colors.ini (nur Python-Version)
+
+## Konfiguration (Python-Version)
+
+Die Farbkonfiguration wird in der Datei `colors.ini` gespeichert.  Hier ist ein Beispiel für den Inhalt der Datei:
+
+```ini
+[Colors]
+background = #FFFFFF
+face = #EEEEEE
+hands = #000000
+digits = #000000
+date = #000000
 ```
 
-### 2. Skript ausführen  
-```bash
-python3 analog_clock.py
-```
-Hinweis:  
-Auf manchen Systemen muss tkinter separat installiert werden (z. B. `sudo apt-get install python3-tk` auf Debian/Ubuntu).
+Du kannst die Werte in dieser Datei ändern, um das Aussehen der Uhr anzupassen.
 
-### 3. Kompilierung
+Bekannte Probleme
+Die HTML-Version benötigt möglicherweise Anpassungen, um in älteren Browsern korrekt angezeigt zu werden.
+Die Python-Version benötigt möglicherweise zusätzliche Berechtigungen, um akustische Signale abzuspielen (abhängig vom Betriebssystem).
+Die genaue Darstellung des Datums kann je nach Systemkonfiguration variieren.
+Lizenz
+Dieses Projekt ist unter der MIT-Lizenz lizenziert.
 
-pyinstaller.exe --onefile --windowed  .\analoguhr.py
-
-## 🎯 Nutzung  
-Die Uhr startet sofort mit aktueller Zeit und Datum.  
-- Stummschaltung: Über das Menü „Stummschaltung ein/aus“ den Stundenschlag an- oder ausschalten.  
-- Farbwahl: Über das Menü „Farben ändern“ können Hintergrundfarbe, Zifferblatt, Zeiger, Ziffern und Datumsanzeige individuell angepasst werden. Die Farbauswahl ist gesperrt, solange ein Farbdialog geöffnet ist.  
-- Farben zurücksetzen: Im Farbauswahl-Dialog kann man alle Farben auf die Standardwerte zurücksetzen.  
-- Beep‑Sequenz: Bei jeder vollen Stunde ertönen n Töne, wobei n die aktuelle Stunde im 24‑Stunden‑Format ist (z. B. 13 Töne für 13 Uhr).  
-- Farbkonfiguration wird gespeichert und beim nächsten Start wieder geladen.
-
-## 🛠️ Entwicklung  
-Branch‑Struktur  
-- main – stabile Version (hier 1.1.0)  
-- dev – laufende Entwicklung  
-- Feature‑Branches nach Issue‑Nummer  
-
-Testen  
-Laufend `python3 analog_clock.py` ausführen, um die GUI zu testen. GUI‑Tests sind nicht vorgesehen; prüfen Sie manuell.
-
-Pull‑Requests  
-Bitte beschreiben Sie Änderungen klar und fügen Sie ggf. Screenshots hinzu.  
-Für größere Features: Erstellen Sie ein Issue vorab.
-
-## 📄 Lizenz  
-MIT License – siehe LICENSE.
-
-## 📬 Kontakt  
-Autor: Dieter Eckstein  
-Issue‑Tracker: GitHub Issues
-
-## 📦 Versionsgeschichte  
-| Version | Datum       | Änderungen                                                  |
-|---------|-------------|-------------------------------------------------------------|
-| 1.0.0   | 2025-08-23  | Erstveröffentlichung: römische Ziffern, Stundenschlag, Datum, Stummschaltung |
-| 1.1.0   | 2025-08-23  | Neue Features: Farbauswahl mit Menü-Sperrung, Zurücksetzen der Farben, Farbspeicherung in ini-Datei           |
-
+Kontakt
+[Dieter Eckstein]
